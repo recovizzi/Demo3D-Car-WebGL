@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>WebGL - Formes de base et mod&egrave;le de Phong</title>
+
+
+
+
+    <script type="x-shader/x-vertex" id="vshader">
+     uniform mat4 projection;
+     uniform mat4 modelview;
+     uniform vec4 lightPosition;
+     uniform mat3 normalMatrix;
+
+     attribute vec3 vcoords;
+     attribute vec3 vnormal;
+     attribute vec2 vtexcoord;
+
+     varying vec3 fN, fL, fE;
+     varying vec3 fviewCoords;
+     varying vec2 fTexCoord;
+
+     void main() {
+        vec4 eyeCoords = modelview * vec4(vcoords,1.0);
+        gl_Position = projection * eyeCoords;
+
+        vec3 pos = eyeCoords.xyz;
+
+          // Modify light position according to the 
+          // transformations applied if you want the light
+          // to move with the objects
+//        vec3 light = (modelview * lightPosition).xyz;
+        vec3 light = (lightPosition).xyz;
+
+          // Now compute vectors L, E and N.
+          // Note that N is affected by the 
+          // transformations applied.
+
+        fL = normalize( light - pos );
+        fE = normalize(-pos);
+        fN = normalMatrix * normalize(vnormal);
+
+  
+        fviewCoords = eyeCoords.xyz;
+        fTexCoord = vtexcoord;
+     }
+</script>
+
+    <script type="x-shader/x-fragment" id="fshader">
+     precision mediump float;
+
+     uniform vec4 ambientProduct;
+     uniform vec4 diffuseProduct;
+     uniform vec4 specularProduct;
+     uniform float shininess;
+
+     varying vec3 fN, fL, fE;
+     varying vec3 fviewCoords;
+     varying vec2 fTexCoord;
+
+     uniform sampler2D texture;
+	 uniform int renderingoption;
+
+     void main() {
+
+          vec4 Color;
+    
+          vec3 H = normalize( fL + fE );
+          vec4 ambient = ambientProduct;
+ 
+          float factorLN = max( dot(fL, fN), 0.0 );
+          vec4  diffuse = factorLN*diffuseProduct;
+
+          float factorNH = pow( max(dot(fN, H), 0.0), shininess );
+          vec4  specular = factorNH * specularProduct;
+    
+          if( dot(fL, fN) < 0.0 )
+              specular = vec4(0.0, 0.0, 0.0, 1.0);
+
+          Color = ambient + diffuse + specular;
+          Color.a = 1.0;
+
+          if(renderingoption == 2)
+			gl_FragColor = Color*texture2D( texture, fTexCoord );
+		  else if(renderingoption == 1)
+			gl_FragColor = texture2D( texture, fTexCoord );		  
+		  else
+			gl_FragColor = Color;		         
+
+     }
+</script>
+
+<script type="x-shader/x-vertex" id="vshaderbox">
+    uniform mat4 projection;
+    uniform mat4 modelview;
+
+    attribute vec3 vcoords;
+    attribute vec3 vnormal;
+    attribute vec2 vtexcoord;
+
+    varying vec3 fCoords;
+
+    void main() {
+       vec2 tmp ;
+       vec3 tmp2;
+       
+       tmp = vtexcoord;
+       tmp2 = vnormal;
+  // inserted only to map texcoord and normal in this shader 
+  // (required since models uses texture coordinates even though 
+  //   we will not use them in this shader)
+
+       vec4 eyeCoords = modelview * vec4(vcoords,1.0);
+       gl_Position = projection * eyeCoords;
+       fCoords = vcoords;  // les sommets du cube positionnés à -500 ou +500, 
+                           // on devrait ici diviser par 500 mais textureCube() s'en accommode !!!
+    }
+</script>
+
+<script type="x-shader/x-fragment" id="fshaderbox">
+    precision mediump float;
+
+    varying vec3 fCoords;
+
+    uniform samplerCube skybox;
+
+    void main() {
+         gl_FragColor = textureCube(skybox, fCoords);
+    }
+</script>
+
+<script type="x-shader/x-vertex" id="vshadermap">
+    uniform mat4 projection;
+    uniform mat4 modelview;
+
+    attribute vec3 vcoords;
+    attribute vec3 vnormal;
+    attribute vec2 vtexcoord;
+
+    varying vec3 fviewCoords;
+    varying vec3 fNormal;
+
+    void main() {
+       vec2 tmp;
+
+       tmp = vtexcoord;
+  // inserted only to map texcoord in this shader (required
+  // since models uses texture coordinates even though we will 
+  // not use them in environmental mapping)
+
+       vec4 eyeCoords = modelview * vec4(vcoords,1.0);
+       gl_Position = projection * eyeCoords;
+       fviewCoords = eyeCoords.xyz;
+       fNormal = vnormal;
+    }
+</script>
+
+<script type="x-shader/x-fragment" id="fshadermap">
+    precision mediump float;
+
+    varying vec3 fNormal;
+    varying vec3 fviewCoords;
+
+    uniform samplerCube skybox;
+    uniform mat3 normalMatrix;
+    uniform mat3 minv;
+
+    void main() {
+         vec3 N = normalMatrix * fNormal;
+         vec3 V = -fviewCoords;
+         vec3 R = -reflect(V,N);
+                            // note the reflect() function
+                            // computes the equation below but 
+                            // inverts the result (!!!)
+
+// alternative way of computing the reflected ray
+//          vec3 R = 2.0 * dot(V,N) * N - V; 
+
+// Transform by inverse of view transform, which was applied to the skybox
+         R = minv * R;
+
+         gl_FragColor = textureCube(skybox, R);
+    }
+</script>
+
+
+
+
+    <script type="text/javascript" src="simple-rotator.js"></script>
+    <script type="text/javascript" src="basic-objects-IFS.js"></script>
+    <script type="text/javascript" src="../Common/extract-data-from-obj-file.js"></script>
+    <script type="text/javascript" src="../Common/MV.js"></script>
+    <script type="text/javascript" src="spherecylinder.js"></script>
+</head>
+
+<body style="background-color:#DDD">
+
+
+    <table style="width: 100%">
+        <colgroup>
+            <col span="1" style="width: 85%;">
+            <col span="1" style="width: 15%;">
+        </colgroup>
+
+        <!-- Put <thead>, <tbody>, and <tr>'s here! -->
+        <tbody>
+            <tr>                
+                <td>
+                    <div>
+                        <canvas width="716" height="716" id="glcanvas" style="background-color:blue"></canvas>
+                    </div>
+                </td>
+                <td>
+                    <h2 style="text-decoration: underline;">
+                        Control
+                    </h2>
+                    <h3>
+                        Use 'Z' to open the car light.
+                    </h3>
+                    <h3>
+                        Use 'S' or 'W' to close the car light.
+                    </h3>
+                    <h3>
+                        Use 'Q' or 'A' to turn the wheel.
+                    </h3>
+                    <h3>
+                        Use 'D' to turn the wheel in other side.
+                    </h3>
+
+                </td>
+            </tr>
+
+        </tbody>
+    </table>
+
+</body>
+
+</html>

@@ -1,0 +1,10 @@
+{
+    "app_location": "dist",
+    "api_location": "api",
+    "output_location": ".dist",
+    "routes": [{
+        "route": "/",
+        "serve": "/spherecylinder.html",
+        "statusCode": 200
+    }]
+}
